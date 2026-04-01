@@ -29,7 +29,7 @@ configurations.configureEach {
 }
 
 repositories {
-
+    maven { url "https://maven.minecraftforge.net" };
 }
 
 loom {

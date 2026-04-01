@@ -1,15 +1,18 @@
 pluginManagement {
     repositories {
-        maven { url "https://maven.fabricmc.net/" }
-        maven { url "https://maven.architectury.dev/" }
-        maven { url "https://files.minecraftforge.net/maven/" }
         gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        maven { url "https://maven.architectury.dev" };
     }
 }
 
-rootProject.name = 'entity_pin_cushions'
-
-include 'common'
-include 'fabric'
-include 'neoforge'
-include 'forge'
+rootProject.name = 'stuck_arrows_for_all'
+include('common', 'fabric', 'forge')
