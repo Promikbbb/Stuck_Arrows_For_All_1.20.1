@@ -15,19 +15,19 @@ import traben.entity_pin_cushions.EntityPinCushions;
 @Mixin(EntityRenderDispatcher.class)
 public class MixinEntityRenderDispatcher {
 
-    // Delete EntityRenderState - not 1.20.1
+    // Fix signature 1.20.1
     @Inject(method = "render", at = @At("HEAD"))
-    private <E extends Entity> void renderMixin(
-            final E entity,
-            final double xOffset,
-            final double yOffset,
-            final double zOffset,
-            final float partialTick,
-            final PoseStack poseStack,
-            final MultiBufferSource bufferSource,
-            final int packedLight,
-            final EntityRenderer<? super E> renderer,
-            final CallbackInfo ci) {
+    private void render(
+            Entity entity,
+            double x,
+            double y,
+            double z,
+            float yaw,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource buffer,
+            int light,
+            CallbackInfo ci) {
         
         EntityPinCushions.PINCUSHION_ID = entity.getId();
         
