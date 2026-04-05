@@ -26,8 +26,8 @@ public class StuckSpectralArrowsFeatureRenderer<T extends LivingEntity, M extend
     
     @Override
     protected int numStuck(T entity) {
-        if (entity instanceof Player player) {
-            return EntityPinCushions.getStuckSpectralArrowCount(player); 
+        if (entity instanceof Player player && player instanceof ISpectralArrow spectralPlayer) {
+            return spectralPlayer.getStuckSpectralArrowCount();
         }
         return 0;
     }

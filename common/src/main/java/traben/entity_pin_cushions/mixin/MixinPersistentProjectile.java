@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import traben.entity_pin_cushions.EntityPinCushions;
+import traben.entity_pin_cushions.ISpectralArrow;
 
 @Mixin(Projectile.class)
 public class MixinPersistentProjectile {
@@ -24,11 +25,11 @@ public class MixinPersistentProjectile {
             return;
         }
         
-        if (hitResult.getEntity() instanceof Player player) {
+        if (hitResult.getEntity() instanceof Player player && player instanceof ISpectralArrow spectralPlayer) {
             if (projectile instanceof SpectralArrow && !player.isCreative()) {
-                int currentCount = EntityPinCushions.getStuckSpectralArrowCount(player);
+                int currentCount = spectralPlayer.getStuckSpectralArrowCount();
                 if (currentCount < EntityPinCushions.MAX_SPECTRAL_ARROWS) {
-                    EntityPinCushions.addStuckSpectralArrowCount(player, 1);
+                    spectralPlayer.setStuckSpectralArrowCount(currentCount + 1);
                     projectile.setNoGravity(true);
                     projectile.setDeltaMovement(0, 0, 0);
                 }
