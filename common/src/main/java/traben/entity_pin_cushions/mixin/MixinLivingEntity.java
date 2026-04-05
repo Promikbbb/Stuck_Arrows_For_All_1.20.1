@@ -15,7 +15,7 @@ import traben.entity_pin_cushions.ISpectralArrow;
 public abstract class MixinLivingEntity implements ISpectralArrow {
     
     @Unique
-    private int entityPinCushions$stuckSpectralArrowTimer = 0;
+    private int entityPinCushions$stuckSpectralArrowTimer = 0; 
     
     @Shadow
     public abstract int getArrowCount();
@@ -40,12 +40,12 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
     
     @Override
     public int getStuckSpectralArrowTimer() {
-        return entityPinCushions$stuckSpectralArrowTimer;
+        return entityPinCushions$stuckSpectralArrowTimer; 
     }
     
     @Override
     public void setStuckSpectralArrowTimer(int timer) {
-        this.entityPinCushions$stuckSpectralArrowTimer = timer;
+        this.entityPinCushions$stuckSpectralArrowTimer = timer; 
     }
     
     @Inject(
