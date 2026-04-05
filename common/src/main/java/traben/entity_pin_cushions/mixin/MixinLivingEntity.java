@@ -4,7 +4,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -13,9 +12,6 @@ import traben.entity_pin_cushions.ISpectralArrow;
 
 @Mixin(LivingEntity.class)
 public abstract class MixinLivingEntity implements ISpectralArrow {
-    
-    @Unique
-    private int entityPinCushions$stuckSpectralArrowTimer = 0; 
     
     @Shadow
     public abstract int getArrowCount();
@@ -40,12 +36,17 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
     
     @Override
     public int getStuckSpectralArrowTimer() {
-        return entityPinCushions$stuckSpectralArrowTimer; 
+        if ((Object) this instanceof Player player) {
+            return EntityPinCushions.getStuckSpectralArrowTimer(player);
+        }
+        return 0;
     }
     
     @Override
     public void setStuckSpectralArrowTimer(int timer) {
-        this.entityPinCushions$stuckSpectralArrowTimer = timer; 
+        if ((Object) this instanceof Player player) {
+            EntityPinCushions.setStuckSpectralArrowTimer(player, timer);
+        }
     }
     
     @Inject(
@@ -60,17 +61,24 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
         
         if (self instanceof Player player) {
             int spectralCount = getStuckSpectralArrowCount();
+            int currentTimer = getStuckSpectralArrowTimer();
             
             if (spectralCount > 0) {
-                if (entityPinCushions$stuckSpectralArrowTimer <= 0) {
-                    entityPinCushions$stuckSpectralArrowTimer = 20 * (30 - Math.min(spectralCount, 29));
+                if (currentTimer <= 0) {
+                    int newTimer = 20 * (30 - Math.min(spectralCount, 29));
+                    newTimer = Math.max(20, Math.min(600, newTimer));
+                    setStuckSpectralArrowTimer(newTimer);
+                    currentTimer = newTimer;
                 }
                 
-                entityPinCushions$stuckSpectralArrowTimer--;
+                currentTimer--;
+                setStuckSpectralArrowTimer(currentTimer);
                 
-                if (entityPinCushions$stuckSpectralArrowTimer <= 0) {
+                if (currentTimer <= 0) {
                     setStuckSpectralArrowCount(spectralCount - 1);
                 }
+            } else {
+                setStuckSpectralArrowTimer(0);
             }
         }
     }

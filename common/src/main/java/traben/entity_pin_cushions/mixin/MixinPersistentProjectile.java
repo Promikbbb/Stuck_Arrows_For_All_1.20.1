@@ -1,6 +1,5 @@
 package traben.entity_pin_cushions.mixin;
 
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.SpectralArrow;
@@ -21,11 +20,17 @@ public class MixinPersistentProjectile {
     private void entityPinCushions$onHitEntity(EntityHitResult hitResult, CallbackInfo ci) {
         Projectile projectile = (Projectile) (Object) this;
         
+        if (!projectile.isAlive()) {
+            return;
+        }
+        
         if (hitResult.getEntity() instanceof Player player) {
             if (projectile instanceof SpectralArrow && !player.isCreative()) {
                 int currentCount = EntityPinCushions.getStuckSpectralArrowCount(player);
                 if (currentCount < EntityPinCushions.MAX_SPECTRAL_ARROWS) {
                     EntityPinCushions.addStuckSpectralArrowCount(player, 1);
+                    projectile.setNoGravity(true);
+                    projectile.setDeltaMovement(0, 0, 0);
                 }
             }
         }

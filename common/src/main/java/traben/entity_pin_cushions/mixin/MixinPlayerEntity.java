@@ -22,17 +22,12 @@ public abstract class MixinPlayerEntity extends LivingEntity implements ISpectra
     
     @Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
     private void entityPinCushions$readSaveData(CompoundTag tag, CallbackInfo ci) {
-        if (tag.contains("entity_pin_cushions_spectral")) {
-            EntityPinCushions.setStuckSpectralArrowCount((Player) (Object) this, tag.getInt("entity_pin_cushions_spectral"));
-        }
+        EntityPinCushions.loadPlayerData(tag, getUUID());
     }
     
     @Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
     private void entityPinCushions$writeSaveData(CompoundTag tag, CallbackInfo ci) {
-        int spectralCount = getStuckSpectralArrowCount();
-        if (spectralCount > 0) {
-            tag.putInt("entity_pin_cushions_spectral", spectralCount);
-        }
+        EntityPinCushions.savePlayerData(tag, getUUID());
     }
     
     @Inject(method = "die", at = @At("HEAD"))
@@ -52,11 +47,11 @@ public abstract class MixinPlayerEntity extends LivingEntity implements ISpectra
     
     @Override
     public int getStuckSpectralArrowTimer() {
-        return ((ISpectralArrow)(Object)this).getStuckSpectralArrowTimer();
+        return EntityPinCushions.getStuckSpectralArrowTimer((Player) (Object) this);
     }
     
     @Override
     public void setStuckSpectralArrowTimer(int timer) {
-        ((ISpectralArrow)(Object)this).setStuckSpectralArrowTimer(timer);
+        EntityPinCushions.setStuckSpectralArrowTimer((Player) (Object) this, timer);
     }
 }
