@@ -5,7 +5,11 @@
   "minVersion": "0.8",
   "client": [
     "MixinAddLayer",
-    "MixinEntityRenderDispatcher"
+    "MixinEntityRenderDispatcher",
+    "MixinPlayerEntityRenderer",
+    "MixinPersistentProjectile",
+    "MixinLivingEntity",
+    "MixinPlayerEntity"
   ],
   "mixins": [
   ],
