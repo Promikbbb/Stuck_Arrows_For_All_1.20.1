@@ -8,9 +8,9 @@ showAsResourcePack = false
 modId = "entity_pin_cushions"
 version = "${version}"
 displayName = "Entity Pin Cushions"
-authors = "Traben"
+authors = "Traben", "MrSterner"
 description = '''
-Lets arrows stick into most mobs, not just players.
+Lets arrows stick into most mobs, not just players. Makes spectral arrows actually render as spectral arrows when stuck on a player.
 '''
 logoFile = "icon.png"
 
