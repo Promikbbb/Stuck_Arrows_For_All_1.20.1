@@ -9,8 +9,10 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import traben.entity_pin_cushions.ISpectralArrow;
 import traben.entity_pin_cushions.LivingEntityDataHelper;
+import traben.entity_pin_cushions.EntityPinCushions;
 
 @Mixin(LivingEntity.class)
 public abstract class MixinLivingEntity implements ISpectralArrow {
@@ -20,6 +22,16 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
     
     @Shadow
     public abstract void setArrowCount(int count);
+    
+    @Inject(method = "getArrowCount", at = @At("HEAD"), cancellable = true)
+    private void entityPinCushions$getArrowCount(CallbackInfoReturnable<Integer> cir) {
+        LivingEntity self = (LivingEntity) (Object) this;
+        int spectralCount = getStuckSpectralArrowCount();
+        
+        if (spectralCount > 0) {
+            cir.setReturnValue(0);
+        }
+    }
     
     @Override
     public int getStuckSpectralArrowCount() {
@@ -52,6 +64,10 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
         int spectralCount = getStuckSpectralArrowCount();
         
         if (spectralCount > 0) {
+            if (getArrowCount() > 0) {
+                setArrowCount(0);
+            }
+            
             int timer = getStuckSpectralArrowTimer();
             if (timer <= 0) {
                 timer = 20 * (30 - Math.min(spectralCount, 29));

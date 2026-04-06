@@ -3,9 +3,9 @@
   "id": "entity_pin_cushions",
   "version": "${version}",
   "name": "Entity Pin Cushions",
-  "description": "Lets arrows stick into most mobs, not just players.",
+  "description": "Lets arrows stick into most mobs, not just players. Makes spectral arrows actually render as spectral arrows when stuck on a player.",
   "authors": [
-    "Traben"
+    "Traben", "MrSterner"
   ],
   "contact": {
     "homepage": ""

@@ -9,10 +9,8 @@
     "MixinPlayerEntityRenderer",
     "MixinPersistentProjectile",
     "MixinLivingEntity",
-    "MixinLivingEntityNBT",
-    "MixinPlayerEntity"
-  ],
-  "mixins": [
+    "MixinPlayerEntity",
+    "MixinLivingEntityNBT"
   ],
   "injectors": {
     "defaultRequire": 1
