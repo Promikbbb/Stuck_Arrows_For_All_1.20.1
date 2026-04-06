@@ -186,4 +186,10 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
                     .endVertex();
         }
     }
+    protected boolean shouldRenderVanillaArrows(T entity) {
+    if (numStuck(entity) > 0) {
+        return false;
+    }
+    return true;
+}
 }
