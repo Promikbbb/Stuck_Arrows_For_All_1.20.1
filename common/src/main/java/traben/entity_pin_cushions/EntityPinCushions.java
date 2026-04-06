@@ -1,5 +1,6 @@
 package traben.entity_pin_cushions;
 
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -29,6 +30,47 @@ public class EntityPinCushions {
     public static void clearPlayerData(Player player) {
         if (player != null) {
             SPECTRAL_ARROW_TIMERS.remove(player.getUUID());
+        }
+    }
+    
+    public static int getStuckSpectralArrowCount(LivingEntity entity) {
+        if (entity == null) return 0;
+        if (entity instanceof Player player) {
+            return getStuckSpectralArrowCount(player);
+        }
+        return LivingEntityDataHelper.getStuckSpectralArrowCount(entity);
+    }
+    
+    public static void setStuckSpectralArrowCount(LivingEntity entity, int count) {
+        if (entity == null) return;
+        if (entity instanceof Player player) {
+            setStuckSpectralArrowCount(player, count);
+        } else {
+            LivingEntityDataHelper.setStuckSpectralArrowCount(entity, count);
+        }
+    }
+    
+    public static void addStuckSpectralArrowCount(LivingEntity entity, int delta) {
+        if (entity == null) return;
+        if (entity instanceof Player player && player.isCreative()) return;
+        int current = getStuckSpectralArrowCount(entity);
+        setStuckSpectralArrowCount(entity, current + delta);
+    }
+    
+    public static int getStuckSpectralArrowTimer(LivingEntity entity) {
+        if (entity == null) return 0;
+        if (entity instanceof Player player) {
+            return getStuckSpectralArrowTimer(player);
+        }
+        return LivingEntityDataHelper.getStuckSpectralArrowTimer(entity);
+    }
+    
+    public static void setStuckSpectralArrowTimer(LivingEntity entity, int timer) {
+        if (entity == null) return;
+        if (entity instanceof Player player) {
+            setStuckSpectralArrowTimer(player, timer);
+        } else {
+            LivingEntityDataHelper.setStuckSpectralArrowTimer(entity, timer);
         }
     }
     

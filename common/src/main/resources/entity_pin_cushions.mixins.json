@@ -9,6 +9,7 @@
     "MixinPlayerEntityRenderer",
     "MixinPersistentProjectile",
     "MixinLivingEntity",
+    "MixinLivingEntityNBT",
     "MixinPlayerEntity"
   ],
   "mixins": [

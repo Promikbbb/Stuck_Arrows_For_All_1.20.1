@@ -10,12 +10,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import traben.entity_pin_cushions.ISpectralArrow;
+import traben.entity_pin_cushions.LivingEntityDataHelper;
 
 @Mixin(LivingEntity.class)
 public abstract class MixinLivingEntity implements ISpectralArrow {
-    
-    @Unique
-    private int entityPinCushions$stuckSpectralArrowTimer = 0;
     
     @Shadow
     public abstract int getArrowCount();
@@ -25,55 +23,55 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
     
     @Override
     public int getStuckSpectralArrowCount() {
-        if ((Object) this instanceof Player player && player instanceof ISpectralArrow spectralPlayer) {
-            return spectralPlayer.getStuckSpectralArrowCount();
-        }
-        return 0;
+        LivingEntity self = (LivingEntity) (Object) this;
+        return LivingEntityDataHelper.getStuckSpectralArrowCount(self);
     }
     
     @Override
     public void setStuckSpectralArrowCount(int count) {
-        if ((Object) this instanceof Player player && player instanceof ISpectralArrow spectralPlayer) {
-            spectralPlayer.setStuckSpectralArrowCount(count);
-        }
+        LivingEntity self = (LivingEntity) (Object) this;
+        LivingEntityDataHelper.setStuckSpectralArrowCount(self, count);
     }
     
     @Override
     public int getStuckSpectralArrowTimer() {
-        return entityPinCushions$stuckSpectralArrowTimer;
+        LivingEntity self = (LivingEntity) (Object) this;
+        return LivingEntityDataHelper.getStuckSpectralArrowTimer(self);
     }
     
     @Override
     public void setStuckSpectralArrowTimer(int timer) {
-        this.entityPinCushions$stuckSpectralArrowTimer = timer;
+        LivingEntity self = (LivingEntity) (Object) this;
+        LivingEntityDataHelper.setStuckSpectralArrowTimer(self, timer);
     }
     
-    @Inject(
-        method = "tick",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/world/entity/LivingEntity;getArrowCount()I"
-        )
-    )
+    @Inject(method = "tick", at = @At("HEAD"))
     private void entityPinCushions$tick(CallbackInfo ci) {
         LivingEntity self = (LivingEntity) (Object) this;
         
-        if (self instanceof Player player && player instanceof ISpectralArrow spectralPlayer) {
-            int spectralCount = spectralPlayer.getStuckSpectralArrowCount();
-            
-            if (spectralCount > 0) {
-                if (entityPinCushions$stuckSpectralArrowTimer <= 0) {
-                    entityPinCushions$stuckSpectralArrowTimer = 20 * (30 - Math.min(spectralCount, 29));
-                }
-                
-                entityPinCushions$stuckSpectralArrowTimer--;
-                
-                if (entityPinCushions$stuckSpectralArrowTimer <= 0) {
-                    spectralPlayer.setStuckSpectralArrowCount(spectralCount - 1);
-                }
-            } else {
-                entityPinCushions$stuckSpectralArrowTimer = 0;
+        int spectralCount = getStuckSpectralArrowCount();
+        
+        if (spectralCount > 0) {
+            int timer = getStuckSpectralArrowTimer();
+            if (timer <= 0) {
+                timer = 20 * (30 - Math.min(spectralCount, 29));
+                setStuckSpectralArrowTimer(timer);
             }
+            
+            timer--;
+            setStuckSpectralArrowTimer(timer);
+            
+            if (timer <= 0) {
+                setStuckSpectralArrowCount(spectralCount - 1);
+            }
+        } else {
+            setStuckSpectralArrowTimer(0);
         }
+    }
+    
+    @Inject(method = "die", at = @At("HEAD"))
+    private void entityPinCushions$onDeath(DamageSource source, CallbackInfo ci) {
+        LivingEntity self = (LivingEntity) (Object) this;
+        LivingEntityDataHelper.removeData(self);
     }
 }

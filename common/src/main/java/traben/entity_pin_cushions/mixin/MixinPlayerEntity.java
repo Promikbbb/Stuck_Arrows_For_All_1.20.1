@@ -25,13 +25,13 @@ public abstract class MixinPlayerEntity extends LivingEntity implements ISpectra
 
     @Override
     public final int getStuckSpectralArrowCount() {
-        return this.entityData.get(EntityPinCushions.STUCK_SPECTRAL_ARROW_COUNT);
+    return this.entityData.get(EntityPinCushions.STUCK_SPECTRAL_ARROW_COUNT);
     }
 
     @Override
     public final void setStuckSpectralArrowCount(int stuckArrowCount) {
-        stuckArrowCount = Math.min(stuckArrowCount, EntityPinCushions.MAX_SPECTRAL_ARROWS);
-        this.entityData.set(EntityPinCushions.STUCK_SPECTRAL_ARROW_COUNT, stuckArrowCount);
+    stuckArrowCount = Math.min(stuckArrowCount, EntityPinCushions.MAX_SPECTRAL_ARROWS);
+    this.entityData.set(EntityPinCushions.STUCK_SPECTRAL_ARROW_COUNT, stuckArrowCount);
     }
     
     @Override
