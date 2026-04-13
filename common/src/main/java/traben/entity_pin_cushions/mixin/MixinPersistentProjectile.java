@@ -1,5 +1,7 @@
 package traben.entity_pin_cushions.mixin;
 
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -30,7 +32,11 @@ public class MixinPersistentProjectile {
                 return;
             }
             
-            if (projectile instanceof SpectralArrow) {
+            if (projectile instanceof SpectralArrow spectralArrow) {
+                if (living instanceof Player && spectralArrow.getOwner() instanceof Player) {
+                    living.addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0, false, false));
+                }
+                
                 int currentCount = EntityPinCushions.getStuckSpectralArrowCount(living);
                 if (currentCount < EntityPinCushions.MAX_SPECTRAL_ARROWS) {
                     EntityPinCushions.addStuckSpectralArrowCount(living, 1);
