@@ -42,18 +42,13 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
     
     static {
         try {
-            LOGGER.info("Checking for Citadel library...");
             advancedModelBoxClass = Class.forName("com.github.alexthe666.citadel.client.model.AdvancedModelBox");
-            
             advancedModelBoxTranslateAndRotate = advancedModelBoxClass.getMethod("translateAndRotate", PoseStack.class);
             advancedModelBoxCubesField = advancedModelBoxClass.getField("cubeList");
             advancedModelBoxShowModelField = advancedModelBoxClass.getField("showModel");
-            
             citadelAvailable = true;
-            LOGGER.info("Citadel library detected and loaded successfully!");
         } catch (Exception e) {
             citadelAvailable = false;
-            LOGGER.warn("Citadel library not found: {}", e.getMessage());
         }
     }
     
@@ -68,39 +63,60 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
     public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, T livingEntity, float limbSwing, float limbSwingAmount, float partialTicks, float ageInTicks, float netHeadYaw, float headPitch) {
         int i = this.numStuck(livingEntity);
         
+        if (i == 0) return;
+        
         RandomSource randomSource = RandomSource.create(livingEntity.getId());
-        if (i > 0) {
-            M model = getParentModel();
+        M model = getParentModel();
+        
+        for (int j = 0; j < i; ++j) {
+            Random partRand = new Random(j);
+            poseStack.pushPose();
             
-            for (int j = 0; j < i; ++j) {
-                Random partRand = new Random(j);
-                poseStack.pushPose();
-                
+            boolean found = false;
+            
+            if (citadelAvailable) {
                 Object advancedModelBox = findRandomAdvancedModelBox(model, partRand);
-                
-                if (advancedModelBox == null) {
-                    poseStack.popPose();
-                    continue;
+                if (advancedModelBox != null) {
+                    try {
+                        advancedModelBoxTranslateAndRotate.invoke(advancedModelBox, poseStack);
+                        found = true;
+                    } catch (Exception e) {
+                        // Игнорируем
+                    }
                 }
-
-                try {
-                    advancedModelBoxTranslateAndRotate.invoke(advancedModelBox, poseStack);
-                } catch (Exception e) {
-                    poseStack.popPose();
-                    continue;
-                }
-
-                float f = randomSource.nextFloat();
-                float g = randomSource.nextFloat();
-                float h = randomSource.nextFloat();
-
-                f = -1.0F * (f * 2.0F - 1.0F);
-                g = -1.0F * (g * 2.0F - 1.0F);
-                h = -1.0F * (h * 2.0F - 1.0F);
-                
-                this.renderStuckItem(poseStack, buffer, packedLight, livingEntity, f, g, h, partialTicks);
-                poseStack.popPose();
             }
+            
+            if (!found) {
+                Pair<ModelPart, Runnable> vanillaPart = findRandomVanillaModelPart(model, partRand, poseStack);
+                if (vanillaPart != null) {
+                    vanillaPart.getSecond().run();
+                    found = true;
+                }
+            }
+            
+            if (!found) {
+                poseStack.popPose();
+                continue;
+            }
+
+            float f = (randomSource.nextFloat() - 0.5F) * 2.0F;
+            float g = (randomSource.nextFloat() - 0.5F) * 2.0F;
+            float h = (randomSource.nextFloat() - 0.5F) * 2.0F;
+            
+            float len = Mth.sqrt(f * f + g * g + h * h);
+            if (len > 0.001F) {
+                f /= len;
+                g /= len;
+                h /= len;
+            }
+            
+            float distance = 0.2F + randomSource.nextFloat() * 0.4F;
+            f *= distance;
+            g *= distance;
+            h *= distance;
+            
+            this.renderStuckItem(poseStack, buffer, packedLight, livingEntity, f, g, h, partialTicks);
+            poseStack.popPose();
         }
     }
 
@@ -118,7 +134,6 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
                     allBoxes.add(part);
                 }
             }
-            LOGGER.info("Found {} parts via getAllParts()", allBoxes.size());
         } catch (Exception e) {
             for (Field field : model.getClass().getDeclaredFields()) {
                 try {
@@ -126,12 +141,10 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
                     Object value = field.get(model);
                     if (value != null && advancedModelBoxClass.isInstance(value)) {
                         allBoxes.add(value);
-                        LOGGER.info("Found AdvancedModelBox field: {}", field.getName());
                     }
                 } catch (IllegalAccessException ex) {
                 }
             }
-            LOGGER.info("Found {} parts via fields", allBoxes.size());
         }
         
         if (allBoxes.isEmpty()) {
@@ -155,9 +168,9 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
         
         return allBoxes.get(0);
     }
-
+    
     @Nullable
-    private Pair<ModelPart, Runnable> findRandomModelPartOld(M model, Random random, PoseStack poseStack) {
+    private Pair<ModelPart, Runnable> findRandomVanillaModelPart(M model, Random random, PoseStack poseStack) {
         if (model instanceof AgeableListModel<?> animal) {
             return bestFromList(animal.headParts(), animal.bodyParts(), random, poseStack);
         } else if (model instanceof FrogModel<?> frogModel) {
@@ -212,9 +225,7 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
         }
 
         protected int numStuck(T entity) {
-            LOGGER.info("TEST: Forcing arrow render on entity: {}", entity.getClass().getSimpleName());
-            return 1;
-            // return entity.getArrowCount();
+            return entity.getArrowCount();
         }
 
         protected void renderStuckItem(PoseStack poseStack, MultiBufferSource buffer, int packedLight, Entity entity, float x, float y, float z, float partialTick) {

@@ -47,17 +47,13 @@ public abstract class MixinAddLayer<T extends LivingEntity, M extends EntityMode
     private void allStuckArrows$mixin(EntityRendererProvider.Context context, EntityModel<?> model, float shadowRadius, CallbackInfo ci) {
         boolean shouldAddLayers = false;
         
-        LOGGER.info("Checking model: {} for layer addition", this.model.getClass().getName());
-        
         // Проверка на стандартные модели Minecraft
         if (this.model instanceof AgeableListModel || this.model instanceof HierarchicalModel) {
-            LOGGER.info("Model is AgeableListModel or HierarchicalModel, adding layers");
             shouldAddLayers = true;
         }
         
         if (!shouldAddLayers && citadelAvailable && advancedEntityModelClass != null) {
             if (advancedEntityModelClass.isInstance(this.model)) {
-                LOGGER.info("Model is AdvancedEntityModel, adding layers");
                 shouldAddLayers = true;
             }
         }
@@ -65,10 +61,8 @@ public abstract class MixinAddLayer<T extends LivingEntity, M extends EntityMode
         if (!shouldAddLayers) {
             try {
                 Class<?> advancedModelBoxClass = Class.forName("com.github.alexthe666.citadel.client.model.AdvancedModelBox");
-                // Проверяем, есть ли поля типа AdvancedModelBox
                 for (java.lang.reflect.Field field : this.model.getClass().getDeclaredFields()) {
                     if (advancedModelBoxClass.isAssignableFrom(field.getType())) {
-                        LOGGER.info("Model contains AdvancedModelBox field: {}, adding layers", field.getName());
                         shouldAddLayers = true;
                         break;
                     }
@@ -83,9 +77,6 @@ public abstract class MixinAddLayer<T extends LivingEntity, M extends EntityMode
             addLayer(new PinCushionLayer.ArrowLayer<>(context, self));
             addLayer(new PinCushionLayer.BeeStingerLayer<>(self));
             addLayer(new StuckSpectralArrowsFeatureRenderer<>(context, self));
-            LOGGER.info("Layers added successfully for model: {}", this.model.getClass().getName());
-        } else {
-            LOGGER.warn("No layers added for model: {}", this.model.getClass().getName());
         }
     }
 }
