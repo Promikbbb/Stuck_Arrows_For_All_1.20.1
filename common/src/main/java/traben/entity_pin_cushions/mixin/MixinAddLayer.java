@@ -15,7 +15,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import traben.entity_pin_cushions.StuckSpectralArrowsFeatureRenderer;
 import traben.entity_pin_cushions.PinCushionLayer;
 
 @Mixin(value = LivingEntityRenderer.class, priority = 2000)
@@ -47,7 +46,6 @@ public abstract class MixinAddLayer<T extends LivingEntity, M extends EntityMode
     private void allStuckArrows$mixin(EntityRendererProvider.Context context, EntityModel<?> model, float shadowRadius, CallbackInfo ci) {
         boolean shouldAddLayers = false;
         
-        // Проверка на стандартные модели Minecraft
         if (this.model instanceof AgeableListModel || this.model instanceof HierarchicalModel) {
             shouldAddLayers = true;
         }
@@ -74,9 +72,7 @@ public abstract class MixinAddLayer<T extends LivingEntity, M extends EntityMode
         if (shouldAddLayers) {
             @SuppressWarnings("unchecked")
             LivingEntityRenderer<T, M> self = (LivingEntityRenderer<T, M>) (Object) this;
-            addLayer(new PinCushionLayer.ArrowLayer<>(context, self));
-            addLayer(new PinCushionLayer.BeeStingerLayer<>(self));
-            addLayer(new StuckSpectralArrowsFeatureRenderer<>(context, self));
+            addLayer(new PinCushionLayer<>(context, self));
         }
     }
 }

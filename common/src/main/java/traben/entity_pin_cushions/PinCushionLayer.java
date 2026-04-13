@@ -22,6 +22,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.entity.projectile.SpectralArrow;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,15 +31,18 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
 
-public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityModel<T>> extends RenderLayer<T, M> {
+public class PinCushionLayer<T extends LivingEntity, M extends EntityModel<T>> extends RenderLayer<T, M> {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("EntityPinCushions");
+    private static final ResourceLocation BEE_STINGER_LOCATION = new ResourceLocation("textures/entity/bee/bee_stinger.png");
     
     private static Class<?> advancedModelBoxClass;
     private static Method advancedModelBoxTranslateAndRotate;
     private static Field advancedModelBoxCubesField;
     private static Field advancedModelBoxShowModelField;
     private static boolean citadelAvailable = false;
+    
+    private final EntityRenderDispatcher dispatcher;
     
     static {
         try {
@@ -52,72 +56,98 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
         }
     }
     
-    public PinCushionLayer(LivingEntityRenderer<T, M> renderer) {
+    public PinCushionLayer(EntityRendererProvider.Context context, LivingEntityRenderer<T, M> renderer) {
         super(renderer);
+        this.dispatcher = context.getEntityRenderDispatcher();
     }
 
-    protected abstract int numStuck(T entity);
-
-    protected abstract void renderStuckItem(PoseStack poseStack, MultiBufferSource buffer, int packedLight, Entity entity, float x, float y, float z, float partialTick);
-
-    public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, T livingEntity, float limbSwing, float limbSwingAmount, float partialTicks, float ageInTicks, float netHeadYaw, float headPitch) {
-        int i = this.numStuck(livingEntity);
+    @Override
+    public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, T livingEntity, 
+                      float limbSwing, float limbSwingAmount, float partialTicks, float ageInTicks, 
+                      float netHeadYaw, float headPitch) {
         
-        if (i == 0) return;
+        int arrowCount = livingEntity.getArrowCount();
+        int spectralCount = LivingEntityDataHelper.getStuckSpectralArrowCount(livingEntity);
+        int stingerCount = livingEntity.getStingerCount();
+        
+        int totalCount = arrowCount + spectralCount + stingerCount;
+        if (totalCount == 0) return;
         
         RandomSource randomSource = RandomSource.create(livingEntity.getId());
         M model = getParentModel();
         
-        for (int j = 0; j < i; ++j) {
-            Random partRand = new Random(j);
-            poseStack.pushPose();
-            
-            boolean found = false;
-            
-            if (citadelAvailable) {
-                Object advancedModelBox = findRandomAdvancedModelBox(model, partRand);
-                if (advancedModelBox != null) {
-                    try {
-                        advancedModelBoxTranslateAndRotate.invoke(advancedModelBox, poseStack);
-                        found = true;
-                    } catch (Exception e) {
-                        // Игнорируем
-                    }
-                }
-            }
-            
-            if (!found) {
-                Pair<ModelPart, Runnable> vanillaPart = findRandomVanillaModelPart(model, partRand, poseStack);
-                if (vanillaPart != null) {
-                    vanillaPart.getSecond().run();
-                    found = true;
-                }
-            }
-            
-            if (!found) {
-                poseStack.popPose();
-                continue;
-            }
-
-            float f = (randomSource.nextFloat() - 0.5F) * 2.0F;
-            float g = (randomSource.nextFloat() - 0.5F) * 2.0F;
-            float h = (randomSource.nextFloat() - 0.5F) * 2.0F;
-            
-            float len = Mth.sqrt(f * f + g * g + h * h);
-            if (len > 0.001F) {
-                f /= len;
-                g /= len;
-                h /= len;
-            }
-            
-            float distance = 0.2F + randomSource.nextFloat() * 0.4F;
-            f *= distance;
-            g *= distance;
-            h *= distance;
-            
-            this.renderStuckItem(poseStack, buffer, packedLight, livingEntity, f, g, h, partialTicks);
-            poseStack.popPose();
+        for (int j = 0; j < arrowCount; ++j) {
+            renderSingleStuckItem(poseStack, buffer, packedLight, livingEntity, randomSource, model, partialTicks,
+                (stack, buf, light, entity, x, y, z, partial) -> {
+                    renderStuckArrow(stack, buf, light, entity, x, y, z, partial);
+                });
         }
+        
+        for (int j = 0; j < spectralCount; ++j) {
+            renderSingleStuckItem(poseStack, buffer, packedLight, livingEntity, randomSource, model, partialTicks,
+                (stack, buf, light, entity, x, y, z, partial) -> {
+                    renderStuckSpectralArrow(stack, buf, light, entity, x, y, z, partial);
+                });
+        }
+        
+        for (int j = 0; j < stingerCount; ++j) {
+            renderSingleStuckItem(poseStack, buffer, packedLight, livingEntity, randomSource, model, partialTicks,
+                (stack, buf, light, entity, x, y, z, partial) -> {
+                    renderStuckStinger(stack, buf, light, entity, x, y, z, partial);
+                });
+        }
+    }
+    
+    private void renderSingleStuckItem(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                                       T livingEntity, RandomSource randomSource, M model, float partialTicks,
+                                       StuckItemRenderer renderer) {
+        Random partRand = new Random(randomSource.nextLong());
+        poseStack.pushPose();
+        
+        boolean found = false;
+        
+        if (citadelAvailable) {
+            Object advancedModelBox = findRandomAdvancedModelBox(model, partRand);
+            if (advancedModelBox != null) {
+                try {
+                    advancedModelBoxTranslateAndRotate.invoke(advancedModelBox, poseStack);
+                    found = true;
+                } catch (Exception e) {
+                }
+            }
+        }
+        
+        if (!found) {
+            Pair<ModelPart, Runnable> vanillaPart = findRandomVanillaModelPart(model, partRand, poseStack);
+            if (vanillaPart != null) {
+                vanillaPart.getSecond().run();
+                found = true;
+            }
+        }
+        
+        if (!found) {
+            poseStack.popPose();
+            return;
+        }
+
+        float f = (randomSource.nextFloat() - 0.5F) * 2.0F;
+        float g = (randomSource.nextFloat() - 0.5F) * 2.0F;
+        float h = (randomSource.nextFloat() - 0.5F) * 2.0F;
+        
+        float len = Mth.sqrt(f * f + g * g + h * h);
+        if (len > 0.001F) {
+            f /= len;
+            g /= len;
+            h /= len;
+        }
+        
+        float distance = 0.2F + randomSource.nextFloat() * 0.4F;
+        f *= distance;
+        g *= distance;
+        h *= distance;
+        
+        renderer.render(poseStack, buffer, packedLight, livingEntity, f, g, h, partialTicks);
+        poseStack.popPose();
     }
 
     @Nullable
@@ -215,72 +245,69 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
         }
         return null;
     }
+    
+    private void renderStuckArrow(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                                  Entity entity, float x, float y, float z, float partialTick) {
+        float f = Mth.sqrt(x * x + z * z);
+        Arrow arrow = new Arrow(entity.level(), entity.getX(), entity.getY(), entity.getZ());
+        arrow.setYRot((float) (Math.atan2(x, z) * 57.2957763671875));
+        arrow.setXRot((float) (Math.atan2(y, f) * 57.2957763671875));
+        arrow.yRotO = arrow.getYRot();
+        arrow.xRotO = arrow.getXRot();
+        
+        this.dispatcher.render(arrow, 0.0, 0.0, 0.0, 0.0F, partialTick, poseStack, buffer, packedLight);
+    }
+    
+    private void renderStuckSpectralArrow(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                                          Entity entity, float x, float y, float z, float partialTick) {
+        float f = Mth.sqrt(x * x + z * z);
+        SpectralArrow spectralArrow = new SpectralArrow(entity.level(), entity.getX(), entity.getY(), entity.getZ());
+        spectralArrow.setYRot((float) (Math.atan2(x, z) * 57.2957763671875));
+        spectralArrow.setXRot((float) (Math.atan2(y, f) * 57.2957763671875));
+        spectralArrow.yRotO = spectralArrow.getYRot();
+        spectralArrow.xRotO = spectralArrow.getXRot();
+        
+        spectralArrow.tickCount = -9999;
+        
+        this.dispatcher.render(spectralArrow, 0.0, 0.0, 0.0, 0.0F, partialTick, poseStack, buffer, packedLight);
+    }
+    
+    private void renderStuckStinger(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                                    Entity entity, float x, float y, float z, float partialTick) {
+        float f = Mth.sqrt(x * x + z * z);
+        float g = (float) (Math.atan2(x, z) * 57.2957763671875);
+        float h = (float) (Math.atan2(y, f) * 57.2957763671875);
+        poseStack.translate(0.0F, 0.0F, 0.0F);
+        poseStack.mulPose(Axis.YP.rotationDegrees(g - 90.0F));
+        poseStack.mulPose(Axis.ZP.rotationDegrees(h));
+        poseStack.mulPose(Axis.XP.rotationDegrees(45.0F));
+        poseStack.scale(0.03125F, 0.03125F, 0.03125F);
+        poseStack.translate(2.5F, 0.0F, 0.0F);
+        VertexConsumer vertexConsumer = buffer.getBuffer(RenderType.entityCutoutNoCull(BEE_STINGER_LOCATION));
 
-    public static class ArrowLayer<T extends LivingEntity, M extends EntityModel<T>> extends PinCushionLayer<T, M> {
-        private final EntityRenderDispatcher dispatcher;
-
-        public ArrowLayer(EntityRendererProvider.Context context, LivingEntityRenderer<T, M> renderer) {
-            super(renderer);
-            this.dispatcher = context.getEntityRenderDispatcher();
-        }
-
-        protected int numStuck(T entity) {
-            return entity.getArrowCount();
-        }
-
-        protected void renderStuckItem(PoseStack poseStack, MultiBufferSource buffer, int packedLight, Entity entity, float x, float y, float z, float partialTick) {
-            float f = Mth.sqrt(x * x + z * z);
-            Arrow arrow = new Arrow(entity.level(), entity.getX(), entity.getY(), entity.getZ());
-            arrow.setYRot((float) (Math.atan2(x, z) * 57.2957763671875));
-            arrow.setXRot((float) (Math.atan2(y, f) * 57.2957763671875));
-            arrow.yRotO = arrow.getYRot();
-            arrow.xRotO = arrow.getXRot();
-            
-            this.dispatcher.render(arrow, 0.0, 0.0, 0.0, 0.0F, partialTick, poseStack, buffer, packedLight);
+        for (int n = 0; n < 4; ++n) {
+            poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
+            PoseStack.Pose pose = poseStack.last();
+            vertex(vertexConsumer, pose, -4.5F, -1, 0.0F, 0.0F, packedLight);
+            vertex(vertexConsumer, pose, 4.5F, -1, 0.125F, 0.0F, packedLight);
+            vertex(vertexConsumer, pose, 4.5F, 1, 0.125F, 0.0625F, packedLight);
+            vertex(vertexConsumer, pose, -4.5F, 1, 0.0F, 0.0625F, packedLight);
         }
     }
 
-    public static class BeeStingerLayer<T extends LivingEntity, M extends EntityModel<T>> extends PinCushionLayer<T, M> {
-        private static final ResourceLocation BEE_STINGER_LOCATION = new ResourceLocation("textures/entity/bee/bee_stinger.png");
-
-        public BeeStingerLayer(LivingEntityRenderer<T, M> renderer) {
-            super(renderer);
-        }
-
-        protected int numStuck(T entity) {
-            return entity.getStingerCount();
-        }
-
-        protected void renderStuckItem(PoseStack poseStack, MultiBufferSource buffer, int packedLight, Entity entity, float x, float y, float z, float partialTick) {
-            float f = Mth.sqrt(x * x + z * z);
-            float g = (float) (Math.atan2(x, z) * 57.2957763671875);
-            float h = (float) (Math.atan2(y, f) * 57.2957763671875);
-            poseStack.translate(0.0F, 0.0F, 0.0F);
-            poseStack.mulPose(Axis.YP.rotationDegrees(g - 90.0F));
-            poseStack.mulPose(Axis.ZP.rotationDegrees(h));
-            poseStack.mulPose(Axis.XP.rotationDegrees(45.0F));
-            poseStack.scale(0.03125F, 0.03125F, 0.03125F);
-            poseStack.translate(2.5F, 0.0F, 0.0F);
-            VertexConsumer vertexConsumer = buffer.getBuffer(RenderType.entityCutoutNoCull(BEE_STINGER_LOCATION));
-
-            for (int n = 0; n < 4; ++n) {
-                poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
-                PoseStack.Pose pose = poseStack.last();
-                vertex(vertexConsumer, pose, -4.5F, -1, 0.0F, 0.0F, packedLight);
-                vertex(vertexConsumer, pose, 4.5F, -1, 0.125F, 0.0F, packedLight);
-                vertex(vertexConsumer, pose, 4.5F, 1, 0.125F, 0.0625F, packedLight);
-                vertex(vertexConsumer, pose, -4.5F, 1, 0.0F, 0.0625F, packedLight);
-            }
-        }
-
-        private static void vertex(VertexConsumer consumer, PoseStack.Pose pose, float x, int y, float u, float v, int packedLight) {
-            consumer.vertex(pose.pose(), x, (float) y, 0.0F)
-                    .color(255, 255, 255, 255)
-                    .uv(u, v)
-                    .overlayCoords(OverlayTexture.NO_OVERLAY)
-                    .uv2(packedLight)
-                    .normal(pose.normal(), 0.0F, 1.0F, 0.0F)
-                    .endVertex();
-        }
+    private static void vertex(VertexConsumer consumer, PoseStack.Pose pose, float x, int y, float u, float v, int packedLight) {
+        consumer.vertex(pose.pose(), x, (float) y, 0.0F)
+                .color(255, 255, 255, 255)
+                .uv(u, v)
+                .overlayCoords(OverlayTexture.NO_OVERLAY)
+                .uv2(packedLight)
+                .normal(pose.normal(), 0.0F, 1.0F, 0.0F)
+                .endVertex();
+    }
+    
+    @FunctionalInterface
+    private interface StuckItemRenderer {
+        void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, 
+                   Entity entity, float x, float y, float z, float partialTick);
     }
 }

@@ -23,6 +23,7 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
     @Shadow
     public abstract void setArrowCount(int count);
     
+    /*
     @Inject(method = "getArrowCount", at = @At("HEAD"), cancellable = true)
     private void entityPinCushions$getArrowCount(CallbackInfoReturnable<Integer> cir) {
         LivingEntity self = (LivingEntity) (Object) this;
@@ -32,6 +33,7 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
             cir.setReturnValue(0);
         }
     }
+    */
     
     @Override
     public int getStuckSpectralArrowCount() {
@@ -64,9 +66,7 @@ public abstract class MixinLivingEntity implements ISpectralArrow {
         int spectralCount = getStuckSpectralArrowCount();
         
         if (spectralCount > 0) {
-            if (getArrowCount() > 0) {
-                setArrowCount(0);
-            }
+            // setArrowCount(0) 
             
             int timer = getStuckSpectralArrowTimer();
             if (timer <= 0) {
