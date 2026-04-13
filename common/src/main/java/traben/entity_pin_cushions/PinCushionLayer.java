@@ -22,12 +22,41 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Arrow;
-import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.*;
 
 public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityModel<T>> extends RenderLayer<T, M> {
+    
+    private static final Logger LOGGER = LoggerFactory.getLogger("EntityPinCushions");
+    
+    private static Class<?> advancedModelBoxClass;
+    private static Method advancedModelBoxTranslateAndRotate;
+    private static Field advancedModelBoxCubesField;
+    private static Field advancedModelBoxShowModelField;
+    private static boolean citadelAvailable = false;
+    
+    static {
+        try {
+            LOGGER.info("Checking for Citadel library...");
+            advancedModelBoxClass = Class.forName("com.github.alexthe666.citadel.client.model.AdvancedModelBox");
+            
+            advancedModelBoxTranslateAndRotate = advancedModelBoxClass.getMethod("translateAndRotate", PoseStack.class);
+            advancedModelBoxCubesField = advancedModelBoxClass.getField("cubeList");
+            advancedModelBoxShowModelField = advancedModelBoxClass.getField("showModel");
+            
+            citadelAvailable = true;
+            LOGGER.info("Citadel library detected and loaded successfully!");
+        } catch (Exception e) {
+            citadelAvailable = false;
+            LOGGER.warn("Citadel library not found: {}", e.getMessage());
+        }
+    }
+    
     public PinCushionLayer(LivingEntityRenderer<T, M> renderer) {
         super(renderer);
     }
@@ -38,48 +67,105 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
 
     public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight, T livingEntity, float limbSwing, float limbSwingAmount, float partialTicks, float ageInTicks, float netHeadYaw, float headPitch) {
         int i = this.numStuck(livingEntity);
+        
         RandomSource randomSource = RandomSource.create(livingEntity.getId());
         if (i > 0) {
+            M model = getParentModel();
+            
             for (int j = 0; j < i; ++j) {
                 Random partRand = new Random(j);
                 poseStack.pushPose();
-                M model = getParentModel();
-                Pair<ModelPart, Runnable> modelPart = null;
                 
-                if (model instanceof AgeableListModel<?> animal) {
-                    modelPart = bestFromList(animal.headParts(), animal.bodyParts(), partRand, poseStack);
-                } else if (model instanceof FrogModel<?> frogModel) {
-                    modelPart = bestFromListMutable(new ArrayList<>(Collections.singleton(frogModel.root())), partRand, poseStack, true);
-                } else if (model instanceof HierarchicalModel<?> hierarchicalModel) {
-                    modelPart = bestFromListMutable(new ArrayList<>(hierarchicalModel.root().children.values()), partRand, poseStack, true);
-                }
-
-                if (modelPart == null) {
+                Object advancedModelBox = findRandomAdvancedModelBox(model, partRand);
+                
+                if (advancedModelBox == null) {
                     poseStack.popPose();
-                    return;
+                    continue;
                 }
 
-                modelPart.getSecond().run();
+                try {
+                    advancedModelBoxTranslateAndRotate.invoke(advancedModelBox, poseStack);
+                } catch (Exception e) {
+                    poseStack.popPose();
+                    continue;
+                }
 
                 float f = randomSource.nextFloat();
                 float g = randomSource.nextFloat();
                 float h = randomSource.nextFloat();
 
-                if (!modelPart.getFirst().cubes.isEmpty()) {
-                    ModelPart.Cube cube = modelPart.getFirst().getRandomCube(randomSource);
-                    float k = Mth.lerp(f, cube.minX, cube.maxX) / 16.0F;
-                    float l = Mth.lerp(g, cube.minY, cube.maxY) / 16.0F;
-                    float m = Mth.lerp(h, cube.minZ, cube.maxZ) / 16.0F;
-                    poseStack.translate(k, l, m);
-                }
-
                 f = -1.0F * (f * 2.0F - 1.0F);
                 g = -1.0F * (g * 2.0F - 1.0F);
                 h = -1.0F * (h * 2.0F - 1.0F);
+                
                 this.renderStuckItem(poseStack, buffer, packedLight, livingEntity, f, g, h, partialTicks);
                 poseStack.popPose();
             }
         }
+    }
+
+    @Nullable
+    private Object findRandomAdvancedModelBox(M model, Random random) {
+        if (!citadelAvailable) return null;
+        
+        List<Object> allBoxes = new ArrayList<>();
+        
+        try {
+            Method getAllParts = model.getClass().getMethod("getAllParts");
+            Iterable<?> parts = (Iterable<?>) getAllParts.invoke(model);
+            for (Object part : parts) {
+                if (advancedModelBoxClass.isInstance(part)) {
+                    allBoxes.add(part);
+                }
+            }
+            LOGGER.info("Found {} parts via getAllParts()", allBoxes.size());
+        } catch (Exception e) {
+            for (Field field : model.getClass().getDeclaredFields()) {
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(model);
+                    if (value != null && advancedModelBoxClass.isInstance(value)) {
+                        allBoxes.add(value);
+                        LOGGER.info("Found AdvancedModelBox field: {}", field.getName());
+                    }
+                } catch (IllegalAccessException ex) {
+                }
+            }
+            LOGGER.info("Found {} parts via fields", allBoxes.size());
+        }
+        
+        if (allBoxes.isEmpty()) {
+            return null;
+        }
+        
+        Collections.shuffle(allBoxes, random);
+        
+        for (Object box : allBoxes) {
+            try {
+                boolean showModel = advancedModelBoxShowModelField.getBoolean(box);
+                if (!showModel) continue;
+                
+                List<?> cubes = (List<?>) advancedModelBoxCubesField.get(box);
+                if (cubes != null && !cubes.isEmpty()) {
+                    return box;
+                }
+            } catch (Exception e) {
+            }
+        }
+        
+        return allBoxes.get(0);
+    }
+
+    @Nullable
+    private Pair<ModelPart, Runnable> findRandomModelPartOld(M model, Random random, PoseStack poseStack) {
+        if (model instanceof AgeableListModel<?> animal) {
+            return bestFromList(animal.headParts(), animal.bodyParts(), random, poseStack);
+        } else if (model instanceof FrogModel<?> frogModel) {
+            return bestFromListMutable(new ArrayList<>(Collections.singleton(frogModel.root())), random, poseStack, true);
+        } else if (model instanceof HierarchicalModel<?> hierarchicalModel) {
+            return bestFromListMutable(new ArrayList<>(hierarchicalModel.root().children.values()), random, poseStack, true);
+        }
+        return null;
     }
 
     @Nullable
@@ -126,23 +212,24 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
         }
 
         protected int numStuck(T entity) {
-            return entity.getArrowCount();
+            LOGGER.info("TEST: Forcing arrow render on entity: {}", entity.getClass().getSimpleName());
+            return 1;
+            // return entity.getArrowCount();
         }
 
         protected void renderStuckItem(PoseStack poseStack, MultiBufferSource buffer, int packedLight, Entity entity, float x, float y, float z, float partialTick) {
             float f = Mth.sqrt(x * x + z * z);
-            // Fix Arrow 1.20.1
             Arrow arrow = new Arrow(entity.level(), entity.getX(), entity.getY(), entity.getZ());
             arrow.setYRot((float) (Math.atan2(x, z) * 57.2957763671875));
             arrow.setXRot((float) (Math.atan2(y, f) * 57.2957763671875));
             arrow.yRotO = arrow.getYRot();
             arrow.xRotO = arrow.getXRot();
+            
             this.dispatcher.render(arrow, 0.0, 0.0, 0.0, 0.0F, partialTick, poseStack, buffer, packedLight);
         }
     }
 
     public static class BeeStingerLayer<T extends LivingEntity, M extends EntityModel<T>> extends PinCushionLayer<T, M> {
-        //  Fix ResourceLocation 1.20.1
         private static final ResourceLocation BEE_STINGER_LOCATION = new ResourceLocation("textures/entity/bee/bee_stinger.png");
 
         public BeeStingerLayer(LivingEntityRenderer<T, M> renderer) {
@@ -175,7 +262,6 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
             }
         }
 
-        // Fix vertex 1.20.1
         private static void vertex(VertexConsumer consumer, PoseStack.Pose pose, float x, int y, float u, float v, int packedLight) {
             consumer.vertex(pose.pose(), x, (float) y, 0.0F)
                     .color(255, 255, 255, 255)
@@ -186,10 +272,4 @@ public abstract class PinCushionLayer<T extends LivingEntity, M extends EntityMo
                     .endVertex();
         }
     }
-    protected boolean shouldRenderVanillaArrows(T entity) {
-    if (numStuck(entity) > 0) {
-        return false;
-    }
-    return true;
-}
 }
